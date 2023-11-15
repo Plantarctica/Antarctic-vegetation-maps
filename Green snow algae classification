@@ -1,0 +1,79 @@
+// Author: Andrew Gray (andrew.gray@nina.no)
+   Description: This script uses Sentinel-2 level-2A imagery and applies filtering, masking and classification algorithms to identify
+   green snow algae across Antarctica.
+
+//summerfilter
+var summer17 =ee.Filter.date('2017-12-01','2018-03-01');
+var summer18 =ee.Filter.date('2018-12-01','2019-03-01');
+var summer19 =ee.Filter.date('2019-12-01','2020-03-01');
+var summer20 =ee.Filter.date('2020-12-01','2021-03-01');
+var summer21 =ee.Filter.date('2021-12-01','2022-03-01');
+var summerAll = ee.Filter.or(summer17, summer18, summer19, summer20); //combined summer filter
+
+//S2_L2 Image Search and Filter
+var S2 = S2L2.filter(summerAll).filterBounds(coastline).filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 20);
+
+
+//CLIP BY BUFFERED LAND MASK
+var clip = function(image) {
+    return image.clip(seamask3);
+};
+var clipped = S2.map(clip);
+
+//MASK BY ELEVATION
+var elemsk = function(image) {
+  var lt100 = image.where((REMA.select('elevation').lte(0).or(REMA.select('elevation').gte(500))), 0);
+  return image.updateMask(lt100);
+};
+var ele_masked = clipped.map(elemsk);
+
+//SEA ICE REMOVAL
+var min = S2.reduce(ee.Reducer.min());
+var seaicemsk = function(image) {
+  var SCL_min = image.where((min.select('SCL_min').eq(6)).or(min.select('SCL_min').eq(2)),0);
+  return image.updateMask(SCL_min);
+};
+var water_masked = ele_masked.map(seaicemsk);
+
+//MASK BY BAND FUNCTIONS
+var mask = function(image) {
+  var mask_fun = image.where((image.select('B2').lte(10)).or((image.select('B2')).gt(5500)).or(image.select('SCL').neq(11)).or((image.select('B2')).gte(image.select('B5'))).or((image.select('B2')).gt(image.select('B3'))).or(image.select('B11').gt(1500)).or((image.select('B2').lte(3000)).and(image.select('B8').lte(2500))).or((image.select('B8')).lt(image.select('B8A'))).or((image.select('B4')).gt(image.select('B5'))), 0);
+  return image.updateMask(mask_fun);
+  };
+var masked = water_masked.map(mask);
+
+//I68
+var processing = function(image) {
+  var i68 = ((((((((image.select('B3')).multiply(50)).add((image.select('B5')).multiply(89))).divide(139)).subtract(image.select('B4'))).divide((((image.select('B3')).multiply(50)).add ((image.select('B5')).multiply(89))).divide(139))).multiply(293006)).add(5579.7)).rename('i68').uint32();
+  return image.addBands(i68);
+  };
+var processed = masked.map(processing);
+
+//celden filter
+var filter = function(image) {
+  var i68filter = image.where(((image.select('i68')).lte(15000)),0);
+  return image.updateMask(i68filter);
+  };
+var i68pix = processed.map(filter);
+var max = i68pix.reduce(ee.Reducer.max());
+var celden = max.select('i68_max').gt(15000);
+
+var algae = max.select('i68_max').rename('celden');
+
+
+//Average filter
+
+var celdenMask = algae.gt(20000);
+var avFilt = celdenMask
+    .reduceNeighborhood({
+    reducer: ee.Reducer.min(),
+    kernel: ee.Kernel.circle(7),
+  })
+   .reproject({
+      crs: 'EPSG:4326',
+      scale: 50
+    });
+
+var algaemasked = algae.updateMask(avFilt);
+
+//Map.addLayer(algaemasked);
