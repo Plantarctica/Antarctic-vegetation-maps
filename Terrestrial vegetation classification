@@ -92,11 +92,11 @@ var greenVeg = indices.map(green_veg);
 
 // Add green layer as a band, so that it can be masked before detecting lichens (to prevent inevitable overlap in some instances between green veg and lichen pixels)
 var GreenVegBand = function(image){
-  var mask = image.select('NDVI').gt(0.4)
+  var band = image.select('NDVI').gt(0.4)
   .and(image.select('NDVI').lt(0.98))
   .and(image.select('NDMI').gt(-0.2))
-  .and(image.select('NDMI').lt(0.6)).rename('GreenVegMask').toFloat(); // 'GreenVegMask' is the new band for the green veg layer
-  return image.addBands(mask)};	
+  .and(image.select('NDMI').lt(0.6)).rename('GreenVegMask').toFloat(); // 'GreenVegMask' is the new band applied to all images for the green veg layer
+  return image.addBands(band)};	
 var GreenVegMask1 = indices.map(GreenVegBand); // Green veg is detected first based on reasoning that if pixel reflectance reaches NDVI > 0.4, then it is more likely to be green veg than lichen
 
 // The 'GreenVegMask' band is binary (green veg layer = 1, everything else = 0), to prevent everything else from being masked when masking the green veg, we need to remove the 0 by adding a random number (e.g. 4 in this case) to the GreenVegMask band values
