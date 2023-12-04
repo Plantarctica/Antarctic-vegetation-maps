@@ -1,0 +1,151 @@
+geometry = ROI
+
+// Import Sentinel-2 Level-2A image collection, filter to ice-free regions and summer months
+var S2SR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geometry) 
+      .filter(ee.Filter.calendarRange(2018, 2023, 'year'))
+      .filter(ee.Filter.calendarRange(12, 2, 'month')) // Peak summer months
+      .select(['B2', 'B3', 'B4', 'B5', 'B8', 'B11', 'SCL'])
+      .filterMetadata('MEAN_SOLAR_ZENITH_ANGLE', 'less_than', 70);
+var min_composite = S2SR.min();
+
+// Clip to coastline to remove ocean from analysis 
+var clip = function(image){
+  return image.clip(landonly)}; 
+var clipped_coastline = S2SR.map(clip);
+
+// Filter image collection by cloud cover over image tile
+var cloud_filter = clipped_coastline.filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 82); // clouds in individual images should be masked out anyway and if they aren't they shouldn't have NDMI/NDVI values within threshold ranges
+print('Image count:', cloud_filter.size()); // return the number of images
+Map.addLayer(cloud_filter.min(), {bands: ['B4','B3','B2'], max: 1900}, 'S2 min mosaic - coastline clip', false);
+
+// Import REMA DEM Mosaic 
+REMA = ee.Image('UMN/PGC/REMA/V1_1/8m');
+
+// Elevation mask
+var elevation_mask = function(image){
+   var elevation = image.where((REMA.select('elevation').gt(500)), 0);
+   return image.updateMask(elevation)};
+var masked_elevation = cloud_filter.map(elevation_mask); 
+
+// Snow & ice mask 
+var AddNDSI = function(image){
+  var NDSI = image.normalizedDifference(['B3', 'B11']).rename('NDSI');
+  return image.addBands(NDSI)};
+var masked_ndsi = masked_elevation.map(AddNDSI);
+
+var snow_mask = function(image){
+    var NDSI_mask = image.where((image.select('NDSI').gt(0.4)).or(image.select('SCL').eq(11)), 0);
+    return image.updateMask(NDSI_mask)};
+var masked_snow = masked_ndsi.map(snow_mask);
+
+// Water mask
+var AddNDWI = function(image){
+  var NDWI = image.normalizedDifference(['B3', 'B8']).rename('NDWI');
+  return image.addBands(NDWI)};
+var addNDWI = masked_snow.map(AddNDWI);
+
+var watermask = function(image){
+  var water_mask = image.where((image.select('NDWI').gt(0.0)).or(image.select('SCL').eq(6)), 0); 
+  return image.updateMask(water_mask)};
+var masked_water = addNDWI.map(watermask);
+
+// Topographic casted shadows ("Dark features/Shadows" for data before 2022-01-25) and cloud shadows
+var darkfeaturecastedshadows = function(image){
+  var dark_pixels = image.where((image.select('SCL').eq(2)).or(image.select('SCL').eq(3)), 0);
+  return image.updateMask(dark_pixels)};
+var masked_dark_pixels = masked_water.map(darkfeaturecastedshadows);
+
+// Dark NIR features/pixels mask (moved from SCL 2 to SCL 7 in new processing baseline 4.00 for Jan 2022 imagery onwards, so need an additional dark feature mask for this imagery)
+var dark_pixels = function(image){
+  var dark_mask = image.where(image.select('B8').lt(0.15*1e4).multiply(image.select('SCL').neq(6)), 0); // From: https://developers.google.com/earth-engine/tutorials/community/sentinel-2-s2cloudless 
+  return image.updateMask(dark_mask)};
+var masked = masked_dark_pixels.map(dark_pixels);
+
+// Cloud and saturated/defective mask - we do not use SCL 7 (masks a lot of bare ground)
+var cloudmask = function(image){ 
+  var cloud_mask = image.where((image.select('SCL').eq(1)).or(image.select('SCL').eq(8))
+  .or(image.select('SCL').eq(9)).or(image.select('SCL').eq(10)), 0);
+  return image.updateMask(cloud_mask).divide(10000)};
+var masked_cloud = masked.map(cloudmask);
+Map.addLayer(masked_cloud, {bands: ['B4', 'B3', 'B2'], max: 2000}, 'mask', false); 
+
+// Add spectral reflectance index bands for targeted vegetation detection   
+var AddIndices = function(image){ 
+  var NDVI = image.normalizedDifference(['B8', 'B4']).rename('NDVI'); // 10 m resolution
+  var NDMI = image.normalizedDifference(['B8', 'B11']).rename('NDMI'); // 20 & 10 m resolution
+  var GRVI = image.normalizedDifference(['B3', 'B4']).rename('GRVI'); // 10 m resolution, helps to remove iron-containing (red) rock
+  var NDRE = image.normalizedDifference(['B8', 'B5']).rename('NDRE'); // B8 is 10m resolution, B5 is 20 m resolutions
+  return image.addBands(NDMI).addBands(NDVI).addBands(GRVI).addBands(NDRE)};
+var indices = masked_cloud.map(AddIndices);
+
+// Green vegetation detection thresholding (vascular plants, bryophytes, green algae)
+var green_veg = function(image){
+  var veg_indices = image.select('NDVI').gt(0.4)
+  .and(image.select('NDVI').lt(0.98))
+  .and(image.select('NDMI').gt(-0.2)) 
+  .and(image.select('NDMI').lt(0.6));
+  return image.updateMask(veg_indices)};
+var greenVeg = indices.map(green_veg); 
+
+// Add green layer as a band, so that it can be masked before detecting lichens (to prevent inevitable overlap in some instances between green veg and lichen pixels)
+// Green veg is detected and masked first based on the reasosning that if pixel reflectance reaches NDVI > 0.4, then it is more likely to be green veg than lichen
+var GreenVegBand = function(image){
+  var mask = image.select('NDVI').gt(0.4)
+  .and(image.select('NDVI').lt(0.98))
+  .and(image.select('NDMI').gt(-0.2))
+  .and(image.select('NDMI').lt(0.6)).rename('GreenVegMask').toFloat(); // 'GreenVegMask' is the new band for the green veg layer
+  return image.addBands(mask)};	
+var GreenVegMask1 = indices.map(GreenVegBand); 
+
+// The 'GreenVegMask' band is binary (green veg layer = 1, everything else = 0), to prevent everything else from being masked when masking the green veg, we need to remove the 0 by adding a random number (e.g. 4 in this case) to the GreenVegMask band values
+var RemoveZeros = function(image){ 
+  var masking = image.select('GreenVegMask').add(4).rename('GreenVegMask_1').toFloat();
+  return image.addBands(masking)};
+var GreenVegMask = GreenVegMask1.map(RemoveZeros); // Now the GreenVegMask band for green veg = 5, and everything else = 4
+
+// Now we can mask the green veg layer without masking everything else (as the latter is now non-zero)
+// Use a mean composite for this, because a given green veg pixel across the collection might not always be detected as green veg), and would have the band value (4 or 0) for 'everything else'
+// so it won't be masked out of final analysis
+// using a mean composite 
+var mean = GreenVegMask.reduce(ee.Reducer.mean());  // masking green first is preferential because if pixel is detected as both lichen and green its likely to be green because of high ndvi
+// code is looking through all temporal images before masking green - so had chance to detect under variability 
+  
+// Lichen detection thresholding 
+var lichen_veg = function(image){
+  var lichen_indices = image.select('NDVI').gt(0.2) 
+  .and(mean.select('GreenVegMask_1_mean').eq(4)) // keeps non green veg ('everything else') in analysis whilst masking the green veg - pixels which have been detected as green veg, even if only once, will have mean values other than 4 or 0, so they will be masked
+  .and(mean.select('GreenVegMask_mean').eq(0)) // "^"  pixels which are always 4 or 0 (i.e. never detected as green veg) will not be masked
+  .and(image.select('NDVI').lt(0.4)) 
+  .and(image.select('NDMI').gt(-0.2)) 
+  .and(image.select('NDMI').lt(-0.05)) 
+  .and(image.select('NDRE').gt(0.1)) 
+  .and(image.select('GRVI').gt(-0.05));
+  return image.updateMask(lichen_indices)};
+var lichen = GreenVegMask.map(lichen_veg);
+
+// create mean composite image layers for lichens and green veg
+var composite_green = greenVeg.reduce(ee.Reducer.mean()); 
+var composite_lichen = lichen.reduce(ee.Reducer.mean());
+Map.addLayer(composite_green, {'bands': ['B4_mean'], 'palette': ['green']}, 'green veg composite'); 
+Map.addLayer(composite_lichen, {'bands': ['B4_mean'], 'palette': ['#feb24c']}, 'lichen composite');
+
+// Export lichen layer as tiffs to google drive (for further analysis in QGIS)
+// Export.image.toDrive({
+//   'image': composite_lichen,
+//   'description': 'Lichens_Antarctica',
+//   'crs': 'EPSG:3031',
+//   'scale': 10,
+//   'region': geometry,
+//   'maxPixels': 1e13,
+//   'skipEmptyTiles': true});
+
+// Export green veg layer as tiffs to google drive (for further analysis in QGIS)
+// Export.image.toDrive({
+//   image: composite_green,
+//   description: 'GreenVeg_Antarctica',
+//   crs: 'EPSG:3031',
+//   scale: 10,
+//   region: geometry,
+//   maxPixels: 1e13,
+//   skipEmptyTiles: true})
+
