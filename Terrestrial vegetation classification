@@ -100,15 +100,13 @@ var GreenVegBand = function(image){
 var GreenVegMask1 = indices.map(GreenVegBand); // Green veg is detected first based on reasoning that if pixel reflectance reaches NDVI > 0.4, then it is more likely to be green veg than lichen
 
 // The 'GreenVegMask' band is binary (green veg layer = 1, everything else = 0), to prevent everything else from being masked when masking the green veg, we need to remove the 0 by adding a random number (e.g. 4 in this case) to the GreenVegMask band values
-var RemoveZeros = function(image){ 
+var RemoveZero = function(image){ 
   var masking = image.select('GreenVegMask').add(4).rename('GreenVegMask_1').toFloat();
   return image.addBands(masking)};
-var GreenVegMask = GreenVegMask1.map(RemoveZeros); // Now the GreenVegMask band for green veg = 5, and everything else = 4
+var GreenVegMask = GreenVegMask1.map(RemoveZero); // Now the GreenVegMask band for green veg = 5, and everything else = 4
 
 // Now we can mask the green veg layer without masking everything else (as the latter is now non-zero)
-// Use a mean composite for this, because a given green veg pixel across the collection might not always be detected as green veg), and would have the band value (4 or 0) for 'everything else'
-// so it won't be masked out of final analysis
-// using a mean composite 
+// Use a mean composite for this, because a given green veg pixel across the collection might not always be detected as green veg, so would be masked out otherwise
 var mean = GreenVegMask.reduce(ee.Reducer.mean());  // masking green first is preferential because if pixel is detected as both lichen and green its likely to be green because of high ndvi
 // code is looking through all temporal images before masking green - so had chance to detect under variability 
   
