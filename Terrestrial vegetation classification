@@ -4,7 +4,7 @@
 
 geometry = ROI
 
-// Import Sentinel-2 Level-2A image collection, filter to ice-free regions and summer months
+// Import Sentinel-2 Level-2A image collection
 var S2SR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geometry) 
       .filter(ee.Filter.calendarRange(2018, 2023, 'year'))
       .filter(ee.Filter.calendarRange(12, 2, 'month')) // Peak summer months
@@ -12,15 +12,15 @@ var S2SR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geomet
       .filterMetadata('MEAN_SOLAR_ZENITH_ANGLE', 'less_than', 70);
 var min_composite = S2SR.min();
 
-// Clip to coastline to remove ocean from analysis 
+// Clip to Antarctic coastline to remove ocean from analysis 
 var clip = function(image){
   return image.clip(landonly)}; 
 var clipped_coastline = S2SR.map(clip);
 
 // Filter image collection by cloud cover over image tile
-var cloud_filter = clipped_coastline.filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 82); // clouds in individual images should be masked out anyway and if they aren't they shouldn't have NDMI/NDVI values within threshold ranges
+var cloud_filter = clipped_coastline.filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 82); 
 print('Image count:', cloud_filter.size()); // return the number of images
-Map.addLayer(cloud_filter.min(), {bands: ['B4','B3','B2'], max: 1900}, 'S2 min mosaic - coastline clip', false);
+Map.addLayer(cloud_filter.min(), {bands: ['B4','B3','B2'], max: 1900}, 'S2 min mosaic - coastline clip');
 
 // Import REMA DEM Mosaic 
 REMA = ee.Image('UMN/PGC/REMA/V1_1/8m');
@@ -71,7 +71,6 @@ var cloudmask = function(image){
   .or(image.select('SCL').eq(9)).or(image.select('SCL').eq(10)), 0);
   return image.updateMask(cloud_mask).divide(10000)};
 var masked_cloud = masked.map(cloudmask);
-Map.addLayer(masked_cloud, {bands: ['B4', 'B3', 'B2'], max: 2000}, 'mask', false); 
 
 // Add spectral reflectance index bands for targeted vegetation detection   
 var AddIndices = function(image){ 
@@ -92,14 +91,13 @@ var green_veg = function(image){
 var greenVeg = indices.map(green_veg); 
 
 // Add green layer as a band, so that it can be masked before detecting lichens (to prevent inevitable overlap in some instances between green veg and lichen pixels)
-// Green veg is detected and masked first based on the reasosning that if pixel reflectance reaches NDVI > 0.4, then it is more likely to be green veg than lichen
 var GreenVegBand = function(image){
   var mask = image.select('NDVI').gt(0.4)
   .and(image.select('NDVI').lt(0.98))
   .and(image.select('NDMI').gt(-0.2))
   .and(image.select('NDMI').lt(0.6)).rename('GreenVegMask').toFloat(); // 'GreenVegMask' is the new band for the green veg layer
   return image.addBands(mask)};	
-var GreenVegMask1 = indices.map(GreenVegBand); 
+var GreenVegMask1 = indices.map(GreenVegBand); // Green veg is detected first based on reasoning that if pixel reflectance reaches NDVI > 0.4, then it is more likely to be green veg than lichen
 
 // The 'GreenVegMask' band is binary (green veg layer = 1, everything else = 0), to prevent everything else from being masked when masking the green veg, we need to remove the 0 by adding a random number (e.g. 4 in this case) to the GreenVegMask band values
 var RemoveZeros = function(image){ 
