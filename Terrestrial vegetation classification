@@ -1,9 +1,17 @@
-// Author: Charlotte Walshaw (Charlotte.Walshaw@ed.ac.uk) & Andrew Gray (andrew.gray@nina.no)
+// Authors: Charlotte Walshaw (Charlotte.Walshaw@ed.ac.uk) & Andrew Gray (andrew.gray@nina.no)
    Description: This script uses Sentinel-2 level-2A imagery and applies filtering, masking and classification 
    algorithms to identify green vegetation (vascular plants, bryophytes, green algae) and lichens across Antarctica.
 
-// geometry = 
-
+// Imports
+var REMA = ee.Image("UMN/PGC/REMA/V1_1/8m"),
+    landonly = ee.FeatureCollection("users/andrewdotg/antarctica_land_only_simplified"),
+    Rock_outcrop = ee.FeatureCollection("users/andrewdotg/VegetationSearchPolygonLandOnly"), // this layer was split into smaller individual polygons named geometry1, geometry2, geometry3, etc......(example below)
+    geometry1 = /* color: #0b4a8b */ee.Geometry.Polygon(
+        [[[-54.034306497324586, -61.84852437413149],
+          [-53.737675637949586, -61.03450577062931],
+          [-55.638310403574586, -60.831681770186954],
+          [-56.352421731699586, -61.55164395569406]]]), 
+   
 // Import Sentinel-2 Level-2A image collection
 var S2SR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geometry) 
       .filter(ee.Filter.calendarRange(2018, 2023, 'year'))
