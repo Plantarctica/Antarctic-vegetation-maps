@@ -2,7 +2,7 @@
    Description: This script uses Sentinel-2 level-2A imagery and applies filtering, masking and classification 
    algorithms to identify green vegetation (vascular plants, bryophytes, green algae) and lichens across Antarctica.
 
-// geometry 
+// geometry = 
 
 // Import Sentinel-2 Level-2A image collection
 var S2SR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geometry) 
