@@ -2,7 +2,7 @@
    Description: This script uses Sentinel-2 level-2A imagery and applies filtering, masking and classification 
    algorithms to identify green vegetation (vascular plants, bryophytes, green algae) and lichens across Antarctica.
 
-geometry = ROI
+// geometry 
 
 // Import Sentinel-2 Level-2A image collection
 var S2SR = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(geometry) 
@@ -107,7 +107,7 @@ var GreenVegMask = GreenVegMask1.map(RemoveZero); // Now the GreenVegMask band f
 
 // Now we can mask the green veg layer without masking everything else (as the latter is now non-zero)
 // Use a mean composite for this, because a given green veg pixel across the collection might not always be detected as green veg, so would be masked out otherwise
-var mean = GreenVegMask.reduce(ee.Reducer.mean());  // masking green first is preferential because if pixel is detected as both lichen and green its likely to be green because of high ndvi
+var mean = GreenVegMask.reduce(ee.Reducer.mean()); 
 // code is looking through all temporal images before masking green - so had chance to detect under variability 
   
 // Lichen detection thresholding 
@@ -123,7 +123,7 @@ var lichen_veg = function(image){
   return image.updateMask(lichen_indices)};
 var lichen = GreenVegMask.map(lichen_veg);
 
-// create mean composite image layers for lichens and green veg
+// create mean composite map layers for lichens and green veg
 var composite_green = greenVeg.reduce(ee.Reducer.mean()); 
 var composite_lichen = lichen.reduce(ee.Reducer.mean());
 Map.addLayer(composite_green, {'bands': ['B4_mean'], 'palette': ['green']}, 'green veg composite'); 
@@ -132,17 +132,17 @@ Map.addLayer(composite_lichen, {'bands': ['B4_mean'], 'palette': ['#feb24c']}, '
 // Export lichen layer as tiffs to google drive (for further analysis in QGIS)
 // Export.image.toDrive({
 //   'image': composite_lichen,
-//   'description': 'Lichens_Antarctica',
+//   'description': 'Lichens_Antarctica_geometry',
 //   'crs': 'EPSG:3031',
 //   'scale': 10,
 //   'region': geometry,
 //   'maxPixels': 1e13,
 //   'skipEmptyTiles': true});
 
-// Export green veg layer as tiffs to google drive (for further analysis in QGIS)
+// Export green veg layer 
 // Export.image.toDrive({
 //   image: composite_green,
-//   description: 'GreenVeg_Antarctica',
+//   description: 'GreenVeg_Antarctica_geometry',
 //   crs: 'EPSG:3031',
 //   scale: 10,
 //   region: geometry,
