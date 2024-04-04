@@ -8,7 +8,7 @@ var summer18 =ee.Filter.date('2018-12-01','2019-03-01');
 var summer19 =ee.Filter.date('2019-12-01','2020-03-01');
 var summer20 =ee.Filter.date('2020-12-01','2021-03-01');
 var summer21 =ee.Filter.date('2021-12-01','2022-03-01');
-var summerAll = ee.Filter.or(summer17, summer18, summer19, summer20); //combined summer filter
+var summerAll = ee.Filter.or(summer17, summer18, summer19, summer20, summer21); //combined summer filter
 
 //S2_L2 Image Search and Filter
 var S2 = S2L2.filter(summerAll).filterBounds(coastline).filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 20);
