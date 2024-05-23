@@ -5,7 +5,7 @@
 // Imports
 var REMA = ee.Image("UMN/PGC/REMA/V1_1/8m"),
     landonly = ee.FeatureCollection("users/andrewdotg/antarctica_land_only_simplified"),
-    Rock_outcrop = ee.FeatureCollection("users/andrewdotg/VegetationSearchPolygonLandOnly"), // this layer was split into smaller individual polygons named geometry1, geometry2, geometry3, etc......(example below)
+    Rock_outcrop = ee.FeatureCollection("users/andrewdotg/VegetationSearchPolygonLandOnly"), // this layer was split into smaller individual polygons named geometry1, geometry2, geometry3, etc.... (example below)
     geometry1 = /* color: #0b4a8b */ee.Geometry.Polygon(
         [[[-54.034306497324586, -61.84852437413149],
           [-53.737675637949586, -61.03450577062931],
