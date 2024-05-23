@@ -30,9 +30,6 @@ var cloud_filter = clipped_coastline.filterMetadata('CLOUDY_PIXEL_PERCENTAGE', '
 print('Image count:', cloud_filter.size()); // return the number of images
 Map.addLayer(cloud_filter.min(), {bands: ['B4','B3','B2'], max: 1900}, 'S2 min mosaic - coastline clip');
 
-// Import REMA DEM Mosaic 
-REMA = ee.Image('UMN/PGC/REMA/V1_1/8m');
-
 // Elevation mask
 var elevation_mask = function(image){
    var elevation = image.where((REMA.select('elevation').gt(500)), 0);
