@@ -1,4 +1,4 @@
-// Author: Charlotte Walshaw (Charlotte.Walshaw@ed.ac.uk) 
+// Author: Charlotte Walshaw (Charlotte.Walshaw@ed.ac.uk) & Andrew Gray
    Description: This script uses Sentinel-2 level-2A imagery and applies filtering, masking and classification 
    algorithms to identify green vegetation (vascular plants, bryophytes, green algae) and lichens across Antarctica.
 
