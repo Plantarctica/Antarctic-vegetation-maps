@@ -5,4 +5,4 @@ JavaScript code for Sentinel-2 derived maps of green vegetation and lichens in i
 Citation: 
 Walshaw, C. V., & Gray, A. (2024). Plantarctica/Antarctic-vegetation-maps: GEE code. Zenodo. https://doi.org/10.5281/zenodo.11264049
 
-Future updates & improvements to the maps will be accessible here.
+Future versions & updates to the maps will be accessible here.
