@@ -1,8 +1,6 @@
-// Author: Andrew Gray (andrew.gray@nina.no)
-   Description: This script uses Sentinel-2 level-2A imagery and applies filtering, masking and classification algorithms to identify
-   green snow algae across Antarctica.
+Description: This script uses Sentinel-2 level-2A imagery and applies filtering, masking and classification algorithms to identify green snow algae across Antarctica.
 
-//summerfilter
+//SUMMER FILTER
 var summer17 =ee.Filter.date('2017-12-01','2018-03-01');
 var summer18 =ee.Filter.date('2018-12-01','2019-03-01');
 var summer19 =ee.Filter.date('2019-12-01','2020-03-01');
@@ -12,7 +10,6 @@ var summerAll = ee.Filter.or(summer17, summer18, summer19, summer20, summer21); 
 
 //S2_L2 Image Search and Filter
 var S2 = S2L2.filter(summerAll).filterBounds(coastline).filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 20);
-
 
 //CLIP BY BUFFERED LAND MASK
 var clip = function(image) {
@@ -59,7 +56,6 @@ var max = i68pix.reduce(ee.Reducer.max());
 var celden = max.select('i68_max').gt(15000);
 
 var algae = max.select('i68_max').rename('celden');
-
 
 //Average filter
 
