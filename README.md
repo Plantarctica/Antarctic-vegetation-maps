@@ -6,3 +6,5 @@ Citation:
 Walshaw, C. V., & Gray, A. (2024). Plantarctica/Antarctic-vegetation-maps: GEE code. Zenodo. https://doi.org/10.5281/zenodo.11264049
 
 Future versions & updates to the maps will be accessible here as new releases.
+
+![heamtpgrey-modified](https://github.com/user-attachments/assets/67af2334-f2eb-4eff-b365-7a43d9db2923)
